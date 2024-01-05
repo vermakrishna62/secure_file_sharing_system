@@ -17,6 +17,9 @@ from .serializers import FileModelSerializer,UserSerializer
 from django.middleware.csrf import get_token
 from django.conf import settings
 
+from django.shortcuts import get_object_or_404
+import itsdangerous
+
 
 @api_view(['GET'])
 def get_csrf_token(request):
@@ -89,7 +92,7 @@ def verify_email(request, uidb64, token):
     if user is not None and default_token_generator.check_token(user, token):
         user.is_active = True
         user.save()
-        login(request, user)
+        # login(request, user)
 
         return Response({'message': 'Email verified successfully.'}, status=status.HTTP_200_OK)
     else:
@@ -120,3 +123,30 @@ def upload_file(request):
        
         return Response({'error': 'Invalid file type. Only pptx, docx, and xlsx are allowed.'}, status=status.HTTP_400_BAD_REQUEST)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+SECRET_KEY = b'My_$uP3r_S3cR3t_K3y_123'
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def download_file(request, file_id):
+    file = get_object_or_404(FileModel, id=file_id, uploaded_by=request.user)
+
+    # Generate and store a secure token for the download link
+    secure_token = generate_secure_token(file, request.user)
+
+    # Append the secure token to the download link
+    download_link = f'/download/{file_id}/?token={secure_token}'
+
+    return Response({'download_link': download_link, 'message': 'success'})
+
+# Function to generate a secure token
+def generate_secure_token(file, user):
+    serializer = itsdangerous.URLSafeSerializer(SECRET_KEY)
+    return serializer.dumps({'file_id': file, 'user_id': user}).decode('utf-8')
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def list_uploaded_files(request):
+    files = FileModel.objects.all()
+    serializer = FileModelSerializer(files, many=True)
+    return Response({'files': serializer.data})
