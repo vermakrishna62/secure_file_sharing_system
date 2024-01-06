@@ -129,7 +129,9 @@ SECRET_KEY = b'My_$uP3r_S3cR3t_K3y_123'
 @api_view(['GET'])
 @permission_classes([permissions.IsAuthenticated])
 def download_file(request, file_id):
-    file = get_object_or_404(FileModel, id=file_id, uploaded_by=request.user)
+    file = get_object_or_404(FileModel, id=file_id)
+    
+    print(file.file.name)
 
     # Generate and store a secure token for the download link
     secure_token = generate_secure_token(file, request.user)
@@ -142,7 +144,13 @@ def download_file(request, file_id):
 # Function to generate a secure token
 def generate_secure_token(file, user):
     serializer = itsdangerous.URLSafeSerializer(SECRET_KEY)
-    return serializer.dumps({'file_id': file, 'user_id': user}).decode('utf-8')
+    file_id = file.id  # Assuming 'id' is the primary key field of FileModel
+    user_id = user.id  # Assuming 'id' is the primary key field of User
+
+    # Serialize only the necessary information
+    data = {'file_id': file_id, 'user_id': user_id}
+
+    return serializer.dumps(data)
 
 @api_view(['GET'])
 @permission_classes([permissions.IsAuthenticated])
